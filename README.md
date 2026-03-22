@@ -14,11 +14,14 @@ This repo packages those lessons as portable skills so they can be reused across
 
 ```text
 go-skills/
+├── benchmark/          # recorded eval runs (per-skill, versioned iterations)
 ├── docs/
 ├── skills/
 │   └── go-context-audit/
 └── README.md
 ```
+
+For how to read and reproduce benchmark snapshots, see [benchmark/README.md](benchmark/README.md).
 
 ## Installation
 
