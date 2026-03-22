@@ -1,0 +1,41 @@
+{
+  "expectations": [
+    {
+      "text": "The output identifies a goroutine lifetime or leak risk",
+      "passed": true,
+      "evidence": "The review explicitly says the background goroutine never terminates and calls it a leak."
+    },
+    {
+      "text": "The output explicitly discusses ctx.Done() or cancellation handling",
+      "passed": true,
+      "evidence": "The review recommends adding `case <-ctx.Done(): return` and explains that the current loop ignores cancellation."
+    },
+    {
+      "text": "The output includes a Go fix snippet showing a cancellation path",
+      "passed": false,
+      "evidence": "The output gives text-only repair suggestions but does not include a Go code block or snippet showing the cancellation-aware loop."
+    },
+    {
+      "text": "The output identifies code locations for the finding",
+      "passed": true,
+      "evidence": "The review cites locations such as `Start — goroutine started at lines 11–23` and `lines 10–23`."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 1,
+    "total": 4,
+    "pass_rate": 0.75
+  },
+  "execution_metrics": {},
+  "timing": {},
+  "claims": [],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "overall": "No suggestions, evals look solid."
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "expectations": [
+    {
+      "text": "The output includes at least one High or Medium risk finding about storing context.Context in struct state",
+      "passed": true,
+      "evidence": "The review reports `Context stored in UserRepository — High` and explains the risk of holding request context on the struct."
+    },
+    {
+      "text": "The output mentions that context.Background() replaces or drops the upstream context",
+      "passed": true,
+      "evidence": "The review states that `LoadUser` runs the DB call under `context.Background()` so caller cancellation and deadlines never reach `QueryRowContext`."
+    },
+    {
+      "text": "The output includes a Go fix snippet that passes ctx as a parameter instead of storing it",
+      "passed": true,
+      "evidence": "The `Suggested shape` code block shows `LoadUser(ctx context.Context, id string)` and removes `ctx` from the struct."
+    },
+    {
+      "text": "The output identifies code locations for the finding",
+      "passed": true,
+      "evidence": "The review includes locations such as `Lines 8–10`, `13–17`, and `20–22`."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {},
+  "timing": {},
+  "claims": [],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "overall": "No suggestions, evals look solid."
+  }
+}

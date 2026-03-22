@@ -1,0 +1,41 @@
+{
+  "expectations": [
+    {
+      "text": "The output includes at least one High or Medium risk finding about storing context.Context in struct state",
+      "passed": true,
+      "evidence": "Finding 1 marks the struct-stored `context.Context` as `High` risk."
+    },
+    {
+      "text": "The output mentions that context.Background() replaces or drops the upstream context",
+      "passed": true,
+      "evidence": "Finding 2 explains that `LoadUser` calls `QueryRowContext` with `context.Background()` and ignores upstream cancellation and deadlines."
+    },
+    {
+      "text": "The output includes a Go fix snippet that passes ctx as a parameter instead of storing it",
+      "passed": true,
+      "evidence": "Finding 2 provides a code snippet for `LoadUser(ctx context.Context, id string)`, and Finding 1 removes the struct field."
+    },
+    {
+      "text": "The output identifies code locations for the finding",
+      "passed": true,
+      "evidence": "The review cites `/Users/macmini/.claude/skills/go-context-audit/evals/files/struct_storage.go:8-17` and `:20-22`."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {},
+  "timing": {},
+  "claims": [],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "overall": "No suggestions, evals look solid."
+  }
+}

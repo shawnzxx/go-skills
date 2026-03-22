@@ -1,0 +1,41 @@
+{
+  "expectations": [
+    {
+      "text": "The output identifies a goroutine lifetime or leak risk",
+      "passed": true,
+      "evidence": "Finding 1 calls out an unbounded goroutine and explains the leak/shutdown risk."
+    },
+    {
+      "text": "The output explicitly discusses ctx.Done() or cancellation handling",
+      "passed": true,
+      "evidence": "Finding 1 explicitly says there is no `case <-ctx.Done(): return` and centers the fix around cancellation."
+    },
+    {
+      "text": "The output includes a Go fix snippet showing a cancellation path",
+      "passed": true,
+      "evidence": "The code block in Finding 1 adds `case <-ctx.Done(): return` and handles closed `jobs` with `job, ok := <-jobs`."
+    },
+    {
+      "text": "The output identifies code locations for the finding",
+      "passed": true,
+      "evidence": "The review cites `goroutine_leak.go:10-23` and `goroutine_leak.go:10`."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "total": 4,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {},
+  "timing": {},
+  "claims": [],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "overall": "No suggestions, evals look solid."
+  }
+}

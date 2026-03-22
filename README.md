@@ -25,7 +25,7 @@ go-skills/
 ### `npx skills`
 
 ```sh
-npx skills add git@github.com:shawnzxx/go-skills.git
+npx skills add https://github.com/shawnzxx/go-skills.git
 ```
 
 ### Manual
