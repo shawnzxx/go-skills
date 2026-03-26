@@ -5,9 +5,7 @@
       "id": 0,
       "prompt": "Review my Go code for context issues. Focus on request lifetime, context propagation, and whether this file hides any context misuse. Return a Markdown review with risk levels, code locations, and suggested fixes.",
       "expected_output": "The review should flag that context is stored in a struct field and that the method replaces the incoming request context with context.Background(). It should explain the lifecycle risk and suggest passing ctx explicitly instead.",
-      "files": [
-        "evals/files/struct_storage.go"
-      ],
+      "files": ["evals/files/struct_storage.go"],
       "expectations": [
         "The output includes at least one High or Medium risk finding about storing context.Context in struct state",
         "The output mentions that context.Background() replaces or drops the upstream context",
@@ -17,15 +15,13 @@
     },
     {
       "id": 1,
-      "prompt": "Please review this Go code for concurrency issues. I am worried there may be hidden goroutine leaks or shutdown bugs. If context misuse is involved, call it out explicitly. Return Markdown findings with risk, code locations, and repair suggestions.",
-      "expected_output": "The review should trigger from a broader concurrency request, detect that the goroutine never listens to ctx.Done(), and suggest a cancellation-aware select loop.",
-      "files": [
-        "evals/files/goroutine_leak.go"
-      ],
+      "prompt": "I'm seeing a steady increase in memory usage. Here is the background worker code. Check for concurrency issues.",
+      "expected_output": "The review should trigger from a broader concurrency request, identify the missing ctx.Done() in the goroutine, and suggest a cancellation-aware select loop.",
+      "files": ["evals/files/goroutine_leak.go"],
       "expectations": [
-        "The output identifies a goroutine lifetime or leak risk",
+        "The missing ctx.Done() inside the goroutine is flagged exactly as 'High' risk.",
         "The output explicitly discusses ctx.Done() or cancellation handling",
-        "The output includes a Go fix snippet showing a cancellation path",
+        "The recommended fix includes a valid Go 'select' statement listening on ctx.Done().",
         "The output identifies code locations for the finding"
       ]
     },
@@ -33,9 +29,7 @@
       "id": 2,
       "prompt": "Audit this Go snippet for context misuse. I want to know whether context.WithValue is being used appropriately here, and I need a review that includes severity, explanation, and corrected code.",
       "expected_output": "The review should distinguish cross-cutting metadata from core business inputs, flag userID and orderID as business parameters that should not be required through context, and suggest explicit parameters or a typed request object.",
-      "files": [
-        "evals/files/withvalue_business.go"
-      ],
+      "files": ["evals/files/withvalue_business.go"],
       "expectations": [
         "The output states that context.WithValue is being misused for core business parameters",
         "The output distinguishes business parameters from lower-risk metadata such as trace IDs",

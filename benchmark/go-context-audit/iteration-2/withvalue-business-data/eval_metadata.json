@@ -1,0 +1,11 @@
+{
+  "eval_id": 2,
+  "eval_name": "withvalue-business-data",
+  "prompt": "Audit this Go snippet for context misuse. I want to know whether context.WithValue is being used appropriately here, and I need a review that includes severity, explanation, and corrected code.",
+  "assertions": [
+    "The output states that context.WithValue is being misused for core business parameters",
+    "The output distinguishes business parameters from lower-risk metadata such as trace IDs",
+    "The output includes a Go fix snippet with explicit parameters or a typed request object",
+    "The output identifies code locations for the finding"
+  ]
+}
