@@ -1,6 +1,6 @@
 ---
 name: go-context-audit
-description: Review Go code for context leaks, goroutine lifecycle issues, cancellation mistakes, and suspicious context propagation. Use when auditing `context.Context`, `ctx` propagation, timeout handling, goroutine leaks, or `context.WithValue` misuse in Go code.
+description: Review Go code for context leaks, goroutine lifecycle issues, cancellation mistakes, and suspicious context propagation. Use when auditing `context.Context`, `ctx` propagation, timeout handling, goroutine leaks, or `context.WithValue` misuse in Go code. Also use when the user mentions memory leaks in Go services, goroutine count growth, request-scoped resource cleanup, or asks about context best practices in any Go codebase.
 license: MIT
 metadata:
   repository: go-skills
@@ -9,140 +9,148 @@ metadata:
 
 # Go Context Audit
 
-Review Go code for `context.Context` leaks and misuse, then report findings with concrete repair guidance.
+Review Go code for `context.Context` misuse and report findings with risk-ranked, actionable repair guidance.
+
+Context bugs are insidious because they compile, pass basic tests, and only surface under production load as goroutine leaks, stale data, or cascading timeouts. This skill helps catch them early.
 
 ## When To Use
 
 Use this skill when the user asks to:
 
-- review Go code for context issues
-- check context leaks or cancellation bugs
-- audit `ctx` propagation or timeout handling
-- review goroutine or concurrency issues in Go where context misuse may be involved
+- review Go code for context issues, leaks, or cancellation bugs
+- audit `ctx` propagation, timeout handling, or deadline management
+- check goroutine or concurrency issues in Go (context misuse is often the root cause)
+- investigate memory growth, goroutine count increases, or resource leaks in Go services
+- review middleware, HTTP handler, or gRPC interceptor context patterns
 
-Do not use this skill for non-Go concurrency reviews or for requests that only need general style feedback.
+Do not use for non-Go concurrency reviews or purely stylistic Go feedback.
 
 ## Review Scope
 
-Start with the smallest relevant scope:
+Start with the smallest relevant scope, then expand only when evidence warrants it:
 
 1. User-specified file or snippet
 2. Current diff or files under review
-3. Directly connected callers and callees
-4. Wider repository scan only if the user asks for repo-wide auditing or the local evidence suggests a broader pattern
-
-This keeps the review focused and prevents noisy repo-wide findings when the user only wants feedback on a narrow change.
+3. Directly connected callers and callees (one hop)
+4. Wider repository scan only when the user requests it or local findings suggest a systemic pattern
 
 ## What To Look For
 
-### High-signal findings
+### Critical Patterns (almost always bugs)
 
-- `context.Context` stored in structs, long-lived objects, caches, or worker state
-- goroutines that may outlive the request or parent operation without checking `ctx.Done()`
-- loops, selects, or blocking calls that have no cancellation path
-- `context.WithCancel`, `context.WithTimeout`, or `context.WithDeadline` created without a matching `cancel`
-- code that drops the upstream `ctx` and replaces it with `context.Background()` or `context.TODO()`
-- `context.WithValue` used for required business inputs such as user IDs, tenant IDs, order IDs, auth state, pagination, or feature flags
+- `context.Context` stored in struct fields, caches, or long-lived objects
+- goroutines that outlive their parent operation without checking `ctx.Done()`
+- `context.WithCancel` / `WithTimeout` / `WithDeadline` created without calling `cancel`
+- code that drops upstream `ctx` and replaces it with `context.Background()` or `context.TODO()` inside library or handler code
+- `time.After()` inside a `select` loop — each iteration allocates a timer that cannot be garbage collected until it fires, causing memory leaks under load
+- `context.WithValue` used for required business inputs (user IDs, tenant IDs, order IDs, auth decisions, pagination)
 
-### Supporting checks
+### Secondary Patterns (often problematic, context-dependent)
 
-- `ctx` is not the first parameter
+- `ctx` is not the first parameter of a function
 - downstream calls do not receive the upstream `ctx`
-- background workers launch from request handlers without a clear ownership boundary
-- cleanup paths exist but are not guaranteed to run on error or cancellation
-- channel-driven goroutines rely on channel close for shutdown but do not check `value, ok := <-ch` or otherwise make exit semantics explicit
+- background workers launched from request handlers without a clear ownership boundary
+- `errgroup.WithContext` used but the original (non-derived) context is passed to child goroutines, bypassing the group's cancellation
+- cleanup paths that are not guaranteed to run on error or cancellation
+- `select` with a `default` case that creates a hot-spin loop when channels are empty
+- channel-driven goroutines that rely on channel close but lack `value, ok := <-ch` for safe exit
+- `context.WithoutCancel` (Go 1.21+) used to detach work — intentional but deserves scrutiny for lifetime ownership
 
 ## Risk Model
 
 ### High
 
-Use `High` when the code can leak goroutines, timers, or request-scoped work, or when it stores request context in long-lived state.
+The code can leak goroutines, timers, or request-scoped resources, or stores request context in long-lived state.
 
 Examples:
-
-- a goroutine loops forever and never listens to `ctx.Done()`
-- a `WithTimeout` context is created inside a hot path and `cancel` is never called
-- a service or client struct stores a request-derived `ctx`
+- a goroutine loops forever without listening to `ctx.Done()`
+- `WithTimeout` is created in a hot path and `cancel` is never called
+- a service struct stores a request-derived `ctx`
+- `time.After` is used inside a `for`/`select` loop (timer leak on every iteration)
 
 ### Medium
 
-Use `Medium` when the code obscures cancellation or smuggles core business data through context, but the immediate leak risk is indirect.
+The code obscures cancellation, smuggles business data through context, or silently drops the upstream context, but the immediate leak risk is indirect.
 
 Examples:
-
 - `context.WithValue` carries `userID`, `tenantID`, or `orderID`
-- a helper replaces the incoming `ctx` with `context.Background()`
-- a downstream dependency call silently omits the upstream `ctx`
+- a helper replaces incoming `ctx` with `context.Background()`
+- `errgroup.WithContext` is used but children receive the wrong ctx
+- `context.WithoutCancel` detaches work without documented ownership
 
 ### Low
 
-Use `Low` for convention issues or clarity problems that reduce maintainability but are unlikely to leak by themselves.
+Convention issues that reduce clarity but are unlikely to leak by themselves.
 
 Examples:
-
 - `ctx` is not the first parameter
 - cancellation is technically correct but harder to follow than necessary
+- `context.TODO()` appears in code that should have a real context by now
 
 ## False Positive Boundaries
 
-Be careful not to over-report:
+Avoid over-reporting:
 
-- `context.WithValue` is often acceptable for tracing IDs, request IDs, log correlation IDs, span state, and other cross-cutting metadata
-- auth or identity data may appear in context in middleware-heavy stacks, but if values such as `userID` or `tenantID` are required business inputs for the reviewed function, default to flagging them unless the cross-cutting ownership is explicit and well-documented
-- long-lived background services may intentionally derive a fresh root context at process startup; flag this only when request-scoped work is being detached without an explicit ownership decision
-- some goroutines exit because their input channel closes; if there is a clear, bounded owner and shutdown path, explain the tradeoff instead of assuming a leak
+- `context.WithValue` is acceptable for trace IDs, request IDs, log correlation, and span context
+- auth/identity data in context is common in middleware stacks — flag only when the reviewed function requires it as a business input and cannot operate without it
+- process-level background services that derive a fresh root context at startup are fine; flag only when request-scoped work is being detached without explicit ownership
+- goroutines that exit because their input channel closes are OK if there is a clear, bounded owner and shutdown path — explain the tradeoff rather than assuming a leak
 
-If uncertain, state the uncertainty explicitly and explain what evidence would confirm or refute the finding.
+When uncertain, state the uncertainty and what evidence would confirm or refute the finding.
 
-For more examples of boundaries and detection patterns, read `references/patterns.md`.
+For detailed detection heuristics and edge cases, read `references/patterns.md`.
 
 ## Review Workflow
 
-1. Confirm the review scope from the user's files, diff, or snippet.
-2. Trace where each relevant `ctx` comes from and where it should end.
-3. Inspect goroutine launch sites, loops, blocking operations, and timeout helpers.
-4. Check whether derived contexts are canceled on every exit path.
-5. Inspect `WithValue` call sites and judge whether the data is cross-cutting metadata or required business input.
-6. Rank findings by risk and provide the smallest practical fix that restores clear ownership and cancellation behavior.
+1. **Scope**: confirm the review target from the user's files, diff, or snippet.
+2. **Trace origins**: for each `ctx`, trace where it was created and where it should be canceled.
+3. **Inspect launch sites**: goroutine spawns, loops, blocking ops, timer/ticker usage.
+4. **Check cancellation paths**: every derived context must have its `cancel` called on all exit paths.
+5. **Audit `WithValue`**: distinguish cross-cutting metadata from business-required inputs.
+6. **Assess lifetime boundaries**: do goroutines, timers, or deferred work outlive their parent context?
+7. **Rank and report**: order findings by risk, provide minimal fixes.
 
 ## Output Format
 
-Always return Markdown. For each finding, use this structure:
+Return Markdown. For each finding:
 
 ````md
 ## Finding N
 
-【Risk】 High
+**Risk:** High | Medium | Low
 
-【Code And Explanation】
-`path/to/file.go:12-24`
+**Location:** `path/to/file.go:12-24`
 
-Explain what the code is doing, why it is risky, and what failure mode it can trigger.
+**Issue:**
+Explain what the code does, why it is risky, and what failure mode it can trigger under load or cancellation.
 
-【Suggested Fix】
+**Fix:**
 
 ```go
-// minimal fix here
+// minimal targeted fix
 ```
 ````
 
-If there are no findings, say so explicitly and mention any residual review gaps, such as "did not inspect transitive callees" or "could not verify shutdown ownership from the provided snippet".
-Do not replace `【Suggested Fix】` with prose only when a practical fix can be shown. Prefer a real Go code block, even if it is a minimal patch sketch.
+If there are no findings, say so explicitly and note any review gaps (e.g., "did not inspect transitive callees" or "could not verify shutdown ownership from the provided snippet").
+
+Always prefer showing a real Go code fix over prose-only guidance.
 
 ## Fix Guidance
 
 Prefer minimal, concrete fixes:
 
 - move `ctx` from struct fields to method parameters
-- add `select { case <-ctx.Done(): return }` or equivalent cancellation handling around long-running goroutines
-- if shutdown may happen by closing a channel, show `value, ok := <-ch` and an explicit `if !ok { return }` branch when that is part of the intended lifecycle
-- `defer cancel()` immediately after deriving a cancelable context, unless ownership is intentionally transferred and documented
-- replace `WithValue` business data with explicit parameters, typed request objects, or dedicated option structs
+- add `select { case <-ctx.Done(): return }` around long-running goroutine loops
+- replace `time.After()` in loops with a reusable `time.NewTimer` + `timer.Reset` pattern
+- `defer cancel()` immediately after deriving a cancelable context (unless ownership is intentionally transferred and documented)
+- replace `WithValue` business data with explicit parameters, typed request objects, or option structs
 - propagate the incoming `ctx` instead of creating a fresh root context in library code
+- use `value, ok := <-ch` and return on `!ok` for channel-close shutdown semantics
+- when using `errgroup.WithContext`, pass the derived context (not the parent) to child goroutines
 
-When showing code, keep the example tightly scoped to the finding rather than rewriting the whole function.
+Keep fix examples tightly scoped to the finding — do not rewrite the entire function.
 
-## Example Findings
+## Examples
 
 ### Example 1: Context stored in a struct
 
@@ -153,7 +161,7 @@ type Service struct {
 }
 ```
 
-This usually deserves at least `Medium`, and often `High` if the struct outlives a single request. Explain that request-scoped cancellation is now hidden inside object state and can be reused incorrectly across calls.
+At least Medium risk, often High if the struct outlives a single request. The request's cancellation becomes hidden object state and can be reused incorrectly across calls. Fix: pass `ctx` as a method parameter.
 
 ### Example 2: Goroutine without cancellation
 
@@ -165,7 +173,7 @@ go func() {
 }()
 ```
 
-If the goroutine is tied to request work or a derived context, flag the missing cancellation path and suggest a `select` that honors `ctx.Done()` or another explicit shutdown signal.
+If the goroutine is tied to request work or a derived context, flag the missing cancellation path. Fix: add a `select` that honors `ctx.Done()`.
 
 ### Example 3: Business data in WithValue
 
@@ -173,12 +181,27 @@ If the goroutine is tied to request work or a derived context, flag the missing 
 ctx = context.WithValue(ctx, userIDKey, userID)
 ```
 
-Flag this when `userID` is required business input rather than cross-cutting metadata. Recommend passing it explicitly.
+Flag when `userID` is a required business input. Cross-cutting metadata like trace IDs is acceptable. Fix: pass `userID` as an explicit function parameter.
+
+### Example 4: Timer leak in select loop
+
+```go
+for {
+    select {
+    case msg := <-ch:
+        handle(msg)
+    case <-time.After(5 * time.Second):
+        flush()
+    }
+}
+```
+
+Each loop iteration allocates a new timer that cannot be GC'd until it fires. Under high throughput this leaks memory. Fix: use `time.NewTicker` or `time.NewTimer` with `Reset`.
 
 ## Review Style
 
 - Lead with the highest-risk finding.
-- Explain why the pattern is dangerous, not just that it is non-idiomatic.
+- Explain **why** the pattern is dangerous, not just that it is non-idiomatic.
 - Prefer evidence over speculation.
-- Mention uncertainty when ownership or shutdown behavior cannot be proven from the visible code.
+- Mention uncertainty when ownership or shutdown behavior cannot be proven from visible code.
 - Default to review output, not direct code edits, unless the user explicitly asks for a patch.

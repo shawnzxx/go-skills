@@ -36,6 +36,45 @@
         "The output includes a Go fix snippet with explicit parameters or a typed request object",
         "The output identifies code locations for the finding"
       ]
+    },
+    {
+      "id": 3,
+      "prompt": "Our event consumer service is leaking memory under high throughput. Events come in bursts — sometimes thousands per second, then quiet. Can you audit this loop for resource leaks?",
+      "expected_output": "The review should identify time.After() inside the select loop as a timer leak, explain that each iteration allocates a timer that cannot be GC'd until it fires, and flag the missing ctx.Done() branch. Should suggest time.NewTicker or time.NewTimer with Reset.",
+      "files": ["evals/files/timer_leak.go"],
+      "expectations": [
+        "The output flags time.After() inside the select loop as High risk for timer/memory leaks",
+        "The output explains that each loop iteration allocates a new timer that lives until it fires, causing memory growth under high throughput",
+        "The recommended fix uses time.NewTicker or time.NewTimer with Reset instead of time.After",
+        "The output also flags the missing ctx.Done() cancellation branch in the for loop",
+        "The output identifies code locations for the findings"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "We're using errgroup to fan out HTTP requests, but when one request fails the others keep running. Can you review this code and tell me what's wrong with our context handling?",
+      "expected_output": "The review should identify that the child goroutines use the parent ctx instead of the errgroup-derived gCtx, which means they bypass the group's cancellation mechanism. Should explain that when one goroutine fails, the others won't be canceled because they hold the parent context.",
+      "files": ["evals/files/errgroup_wrong_ctx.go"],
+      "expectations": [
+        "The output identifies that child goroutines use ctx (parent) instead of gCtx (errgroup-derived context)",
+        "The output explains that errgroup.WithContext cancels the derived context when any goroutine returns an error, but using the parent ctx bypasses this",
+        "The recommended fix passes gCtx to http.NewRequestWithContext instead of ctx",
+        "The output flags the unused gCtx variable as evidence of the bug",
+        "The output identifies code locations for the findings"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Users sometimes get order confirmation emails that fail silently. The email sending is async. Can you check if there's a context-related issue in this HTTP handler?",
+      "expected_output": "The review should identify that r.Context() is passed to a background goroutine (mailer.Send), but r.Context() is canceled when the handler returns. The email goroutine will get a canceled context almost immediately. Should suggest using context.Background() or a detached context with its own timeout for the background work.",
+      "files": ["evals/files/handler_detach.go"],
+      "expectations": [
+        "The output flags passing r.Context() to a goroutine that outlives the HTTP handler as High or Medium risk",
+        "The output explains that r.Context() is canceled when the handler returns, so the email send will fail",
+        "The recommended fix uses a detached context (context.Background() with its own timeout, or context.WithoutCancel) for the background goroutine",
+        "The output identifies code locations for the findings",
+        "The output distinguishes the correct WithTimeout usage in processOrder from the problematic r.Context() in the go statement"
+      ]
     }
   ]
 }

@@ -38,6 +38,29 @@ Signals that reduce risk:
 - `errgroup.Group` or another structured concurrency helper controls lifecycle
 - process-level background worker has a documented root context and shutdown path
 
+## Timer Leaks In Select Loops
+
+A frequently overlooked pattern:
+
+```go
+for {
+    select {
+    case msg := <-ch:
+        handle(msg)
+    case <-time.After(5 * time.Second):
+        flush()
+    }
+}
+```
+
+Each iteration creates a `time.Timer` that lives until it fires. If `msg` arrives frequently, timers accumulate faster than they expire. Under production load, this manifests as steady memory growth.
+
+Fixes:
+
+- Replace with `time.NewTicker` when the interval is constant
+- Replace with `time.NewTimer` + `timer.Reset` when the interval depends on state
+- Always `defer ticker.Stop()` or `timer.Stop()` to prevent leaks
+
 ## Derived Contexts Without Cancel
 
 Flag when code creates:
@@ -45,9 +68,9 @@ Flag when code creates:
 - `context.WithCancel`
 - `context.WithTimeout`
 - `context.WithDeadline`
-- `context.WithCancelCause`
-- `context.WithTimeoutCause`
-- `context.WithDeadlineCause`
+- `context.WithCancelCause` (Go 1.20+)
+- `context.WithTimeoutCause` (Go 1.21+)
+- `context.WithDeadlineCause` (Go 1.21+)
 
 and the corresponding cancel function is never called or ownership is unclear.
 
@@ -116,3 +139,42 @@ Why it matters:
 Typical fix:
 
 - `case item, ok := <-jobs: if !ok { return }`
+
+## Errgroup Context Patterns
+
+`errgroup.WithContext` returns a derived context that is canceled when any goroutine returns an error. A common mistake:
+
+```go
+g, ctx := errgroup.WithContext(ctx)
+g.Go(func() error {
+    return doWork(parentCtx) // BUG: should use ctx, not parentCtx
+})
+```
+
+The child goroutine bypasses the group's cancellation because it holds a reference to the parent context. If another goroutine in the group fails, this one keeps running.
+
+Fix: always pass the errgroup-derived `ctx` to child goroutines.
+
+## Context.WithoutCancel (Go 1.21+)
+
+`context.WithoutCancel` creates a context that is never canceled even when its parent is. This is intentional for fire-and-forget or cleanup work, but introduces lifetime questions:
+
+- Who owns the goroutine using this context?
+- How does it shut down?
+- Can it outlive the process shutdown sequence?
+
+Flag and explain the ownership question. Acceptable when the work is bounded and has an independent shutdown mechanism.
+
+## HTTP Handler Context Patterns
+
+`http.Request.Context()` is canceled when the client disconnects or the handler returns. Passing it to a background goroutine that outlives the handler will cause unexpected cancellation.
+
+Pattern to flag:
+
+```go
+func handler(w http.ResponseWriter, r *http.Request) {
+    go sendEmail(r.Context(), email) // BUG: ctx canceled when handler returns
+}
+```
+
+Fix: derive a background context with its own lifetime, or use a work queue.
