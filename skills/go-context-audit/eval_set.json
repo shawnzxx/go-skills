@@ -1,0 +1,58 @@
+[
+  {
+    "query": "hey, our internal order service (internal/order/handler.go) is leaking goroutines — our datadog dashboard shows the goroutine count climbing from ~200 to ~4000 over 6 hours and then the pod OOMKills. i've looked at the code and it seems related to how we fire off async notifications inside the HTTP handler but i can't find exactly where the goroutine never exits. can you help me find the leak?",
+    "should_trigger": true
+  },
+  {
+    "query": "we have this middleware in pkg/auth/middleware.go that pulls user-id, tenant-id, and subscription-tier out of the JWT and shoves them all into context.WithValue before passing to the next handler. a senior engineer flagged it in review but didn't explain why it's wrong — can you review it and tell me what the problem is and how to fix it?",
+    "should_trigger": true
+  },
+  {
+    "query": "i'm seeing memory growth in our Go API gateway (gateway/proxy.go) over time. pprof heap profile shows lots of *time.runtimeTimer allocations. the hot path is a retry loop that does `select { case <-time.After(timeout): ... }`. is this a leak and if so how do i fix it?",
+    "should_trigger": true
+  },
+  {
+    "query": "i'm using errgroup in cmd/worker/processor.go to run 5 goroutines in parallel. each goroutine does a DB query. but when one fails, the others don't seem to cancel — i checked and i think i'm passing the wrong ctx to the child goroutines. can you look at this and tell me if i'm using errgroup.WithContext correctly?",
+    "should_trigger": true
+  },
+  {
+    "query": "we have a UserService struct in domain/user/service.go that stores the ctx from the incoming gRPC request as a field (s.ctx) so it can be used in other methods later. someone on the team said this is an antipattern but we're not sure why it would cause problems in practice — can you explain and show us how to refactor it?",
+    "should_trigger": true
+  },
+  {
+    "query": "our background job runner in jobs/runner.go calls context.Background() inside a helper that originally received the request ctx as a parameter — i think a developer did this to avoid cancellation but now jobs just run forever even after the originating request times out. is this the right diagnosis and how do we fix it?",
+    "should_trigger": true
+  },
+  {
+    "query": "Hey, review PR #402. I try do load test on local and with bulk reward points to users, the bulk process failed due to an OOM kill, and I suspect some background worker is missing a ctx.Done() select block. Can you verify?",
+    "should_trigger": true
+  },
+  {
+    "query": "i'm building a Go microservice and i want to add distributed tracing with opentelemetry. how do i configure the otel sdk, set up a tracer provider, and propagate trace context across gRPC and HTTP calls? my service is in Go 1.22 and i already have the otel packages vendored.",
+    "should_trigger": false
+  },
+  {
+    "query": "our Go service is hitting high CPU — pprof shows 80% of time in json.Unmarshal inside a request handler. the payloads are about 500KB each and we're processing ~200 req/s. what's the best way to optimize this? would switching to a streaming decoder help, or should i look at caching deserialized structs?",
+    "should_trigger": false
+  },
+  {
+    "query": "i have a Python FastAPI app that uses contextvars to pass request-scoped data (like user id and request id) through async handlers. some of my background tasks aren't inheriting the right context values — how do i properly copy context into asyncio tasks?",
+    "should_trigger": false
+  },
+  {
+    "query": "how do i write a fan-out pattern in Go where one producer sends work to N worker goroutines via a buffered channel, and i want all workers to finish before continuing? i know about WaitGroup but i'm not sure if i should close the channel or use a done channel to signal workers.",
+    "should_trigger": false
+  },
+  {
+    "query": "can you review my Go code for race conditions? i have a map that multiple goroutines read and write to and i'm not using any synchronization. i just want to know if i should use sync.RWMutex or sync.Map and what the performance difference is — i'm not worried about context or cancellation, just the concurrent map access pattern.",
+    "should_trigger": false
+  },
+  {
+    "query": "what is context.Context in Go? i keep seeing it as the first parameter in a lot of functions but i don't understand what it does or why it's passed around everywhere. can you give me a short explanation?",
+    "should_trigger": false
+  },
+  {
+    "query": "The database connection pool is throwing 'context deadline exceeded' errors. Can you help me tune the pool size?",
+    "should_trigger": false
+  }
+]

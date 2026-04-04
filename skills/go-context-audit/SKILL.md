@@ -1,6 +1,6 @@
 ---
 name: go-context-audit
-description: Review Go code for context leaks, goroutine lifecycle issues, cancellation mistakes, and suspicious context propagation. Use when auditing `context.Context`, `ctx` propagation, timeout handling, goroutine leaks, or `context.WithValue` misuse in Go code. Also use when the user mentions memory leaks in Go services, goroutine count growth, request-scoped resource cleanup, or asks about context best practices in any Go codebase.
+description: Review Go code for context bugs, goroutine leaks, and memory issues. Use when user mentions Go code problems with context, goroutines, background workers, or asks to audit/debug code involving ctx. Catches leaks, missing cancel(), stored ctx, time.After in loops, and WithValue anti-patterns.
 license: MIT
 metadata:
   repository: go-skills
