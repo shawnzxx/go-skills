@@ -1,0 +1,11 @@
+{
+  "eval_id": 1,
+  "eval_name": "goroutine-cancel-leak",
+  "prompt": "Please review this Go code for concurrency issues. I am worried there may be hidden goroutine leaks or shutdown bugs. If context misuse is involved, call it out explicitly. Return Markdown findings with risk, code locations, and repair suggestions.",
+  "assertions": [
+    "The output identifies a goroutine lifetime or leak risk",
+    "The output explicitly discusses ctx.Done() or cancellation handling",
+    "The output includes a Go fix snippet showing a cancellation path",
+    "The output identifies code locations for the finding"
+  ]
+}

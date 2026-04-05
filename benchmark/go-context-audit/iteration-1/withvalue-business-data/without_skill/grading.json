@@ -1,0 +1,41 @@
+{
+  "expectations": [
+    {
+      "text": "The output states that context.WithValue is being misused for core business parameters",
+      "passed": false,
+      "evidence": "The review clearly objects to `orderID` in context, but treats `userID` as common or situational rather than firmly identifying core business parameters as a misuse pattern."
+    },
+    {
+      "text": "The output distinguishes business parameters from lower-risk metadata such as trace IDs",
+      "passed": true,
+      "evidence": "The review says `traceID` is a reasonable request-scoped cross-cutting value while `orderID` is poor fit as operation data."
+    },
+    {
+      "text": "The output includes a Go fix snippet with explicit parameters or a typed request object",
+      "passed": true,
+      "evidence": "The `Corrected code` block changes `PlaceOrder` to `PlaceOrder(ctx context.Context, orderID string)` and keeps non-business data in context."
+    },
+    {
+      "text": "The output identifies code locations for the finding",
+      "passed": true,
+      "evidence": "The findings cite `BuildContext` / `PlaceOrder` and the `ctx.Value(...).(string)` locations."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 1,
+    "total": 4,
+    "pass_rate": 0.75
+  },
+  "execution_metrics": {},
+  "timing": {},
+  "claims": [],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "overall": "No suggestions, evals look solid."
+  }
+}

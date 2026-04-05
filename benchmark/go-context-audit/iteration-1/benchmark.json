@@ -1,0 +1,303 @@
+{
+  "metadata": {
+    "skill_name": "go-context-audit",
+    "skill_path": "/Users/macmini/.claude/skills/go-context-audit",
+    "executor_model": "fast-subagent",
+    "analyzer_model": "inline-manual",
+    "timestamp": "2026-03-21T00:00:00Z",
+    "evals_run": [
+      0,
+      1,
+      2
+    ],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "eval_name": "struct-storage-and-background",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The output includes at least one High or Medium risk finding about storing context.Context in struct state",
+          "passed": true,
+          "evidence": "Finding 1 marks the struct-stored `context.Context` as `High` risk."
+        },
+        {
+          "text": "The output mentions that context.Background() replaces or drops the upstream context",
+          "passed": true,
+          "evidence": "Finding 2 explains that `LoadUser` calls `QueryRowContext` with `context.Background()` and ignores upstream cancellation and deadlines."
+        },
+        {
+          "text": "The output includes a Go fix snippet that passes ctx as a parameter instead of storing it",
+          "passed": true,
+          "evidence": "Finding 2 provides a code snippet for `LoadUser(ctx context.Context, id string)`, and Finding 1 removes the struct field."
+        },
+        {
+          "text": "The output identifies code locations for the finding",
+          "passed": true,
+          "evidence": "The review cites `/Users/macmini/.claude/skills/go-context-audit/evals/files/struct_storage.go:8-17` and `:20-22`."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "eval_name": "struct-storage-and-background",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The output includes at least one High or Medium risk finding about storing context.Context in struct state",
+          "passed": true,
+          "evidence": "The review reports `Context stored in UserRepository — High` and explains the risk of holding request context on the struct."
+        },
+        {
+          "text": "The output mentions that context.Background() replaces or drops the upstream context",
+          "passed": true,
+          "evidence": "The review states that `LoadUser` runs the DB call under `context.Background()` so caller cancellation and deadlines never reach `QueryRowContext`."
+        },
+        {
+          "text": "The output includes a Go fix snippet that passes ctx as a parameter instead of storing it",
+          "passed": true,
+          "evidence": "The `Suggested shape` code block shows `LoadUser(ctx context.Context, id string)` and removes `ctx` from the struct."
+        },
+        {
+          "text": "The output identifies code locations for the finding",
+          "passed": true,
+          "evidence": "The review includes locations such as `Lines 8–10`, `13–17`, and `20–22`."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "goroutine-cancel-leak",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The output identifies a goroutine lifetime or leak risk",
+          "passed": true,
+          "evidence": "Finding 1 calls out an unbounded goroutine and explains the leak/shutdown risk."
+        },
+        {
+          "text": "The output explicitly discusses ctx.Done() or cancellation handling",
+          "passed": true,
+          "evidence": "Finding 1 explicitly says there is no `case <-ctx.Done(): return` and centers the fix around cancellation."
+        },
+        {
+          "text": "The output includes a Go fix snippet showing a cancellation path",
+          "passed": true,
+          "evidence": "The code block in Finding 1 adds `case <-ctx.Done(): return` and handles closed `jobs` with `job, ok := <-jobs`."
+        },
+        {
+          "text": "The output identifies code locations for the finding",
+          "passed": true,
+          "evidence": "The review cites `goroutine_leak.go:10-23` and `goroutine_leak.go:10`."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "goroutine-cancel-leak",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.75,
+        "passed": 3,
+        "failed": 1,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The output identifies a goroutine lifetime or leak risk",
+          "passed": true,
+          "evidence": "The review explicitly says the background goroutine never terminates and calls it a leak."
+        },
+        {
+          "text": "The output explicitly discusses ctx.Done() or cancellation handling",
+          "passed": true,
+          "evidence": "The review recommends adding `case <-ctx.Done(): return` and explains that the current loop ignores cancellation."
+        },
+        {
+          "text": "The output includes a Go fix snippet showing a cancellation path",
+          "passed": false,
+          "evidence": "The output gives text-only repair suggestions but does not include a Go code block or snippet showing the cancellation-aware loop."
+        },
+        {
+          "text": "The output identifies code locations for the finding",
+          "passed": true,
+          "evidence": "The review cites locations such as `Start — goroutine started at lines 11–23` and `lines 10–23`."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "withvalue-business-data",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The output states that context.WithValue is being misused for core business parameters",
+          "passed": true,
+          "evidence": "Finding 1 explicitly says `userID` and `orderID` are required business inputs and that this pattern is not appropriate for context values."
+        },
+        {
+          "text": "The output distinguishes business parameters from lower-risk metadata such as trace IDs",
+          "passed": true,
+          "evidence": "The executive summary and Finding 3 say `traceID` is generally acceptable cross-cutting metadata while business IDs should be explicit."
+        },
+        {
+          "text": "The output includes a Go fix snippet with explicit parameters or a typed request object",
+          "passed": true,
+          "evidence": "The code block changes `PlaceOrder` to `PlaceOrder(ctx context.Context, userID, orderID string)` and isolates trace ID handling."
+        },
+        {
+          "text": "The output identifies code locations for the finding",
+          "passed": true,
+          "evidence": "The review cites `withvalue_business.go:13-18`, `:20-23`, and `:21-23`."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "withvalue-business-data",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.75,
+        "passed": 3,
+        "failed": 1,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The output states that context.WithValue is being misused for core business parameters",
+          "passed": false,
+          "evidence": "The review clearly objects to `orderID` in context, but treats `userID` as common or situational rather than firmly identifying core business parameters as a misuse pattern."
+        },
+        {
+          "text": "The output distinguishes business parameters from lower-risk metadata such as trace IDs",
+          "passed": true,
+          "evidence": "The review says `traceID` is a reasonable request-scoped cross-cutting value while `orderID` is poor fit as operation data."
+        },
+        {
+          "text": "The output includes a Go fix snippet with explicit parameters or a typed request object",
+          "passed": true,
+          "evidence": "The `Corrected code` block changes `PlaceOrder` to `PlaceOrder(ctx context.Context, orderID string)` and keeps non-business data in context."
+        },
+        {
+          "text": "The output identifies code locations for the finding",
+          "passed": true,
+          "evidence": "The findings cite `BuildContext` / `PlaceOrder` and the `ctx.Value(...).(string)` locations."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.8333,
+        "stddev": 0.1443,
+        "min": 0.75,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.17",
+      "time_seconds": "+0.0",
+      "tokens": "+0"
+    }
+  },
+  "notes": [
+    "The skill improves both discriminating evals: it turns the goroutine review from a text-only recommendation into a concrete cancellation-aware code fix, and it more clearly labels business identifiers in context as misuse.",
+    "The struct-storage eval is non-discriminating in this first round because baseline behavior was already strong on that pattern.",
+    "Timing and token metrics were not captured from the executor notifications in this run, so benchmark time and token values are zeroed and should not be interpreted."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "eval_id": 1,
+  "eval_name": "goroutine-cancel-leak",
+  "prompt": "I'm seeing a steady increase in memory usage. Here is the background worker code. Check for concurrency issues.",
+  "assertions": [
+    "The missing ctx.Done() inside the goroutine is flagged exactly as 'High' risk.",
+    "The output explicitly discusses ctx.Done() or cancellation handling",
+    "The recommended fix includes a valid Go 'select' statement listening on ctx.Done().",
+    "The output identifies code locations for the finding"
+  ]
+}
